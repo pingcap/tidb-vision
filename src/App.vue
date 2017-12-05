@@ -239,7 +239,7 @@ export default {
 
     drawCircos();
 
-    setInterval(drawCircos, 6000);
+    setInterval(drawCircos, 3000);
   },
   methods: {
     startHacking() {
