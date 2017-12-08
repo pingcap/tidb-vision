@@ -9,7 +9,7 @@ const path = require("path");
 module.exports = (options = {}) => ({
   entry: {
     vendor: "./src/vendor",
-    index: "./src/main.js"
+    index: ['babel-polyfill', "./src/main.js"]
   },
   output: {
     path: resolve(__dirname, "dist"),
@@ -25,7 +25,15 @@ module.exports = (options = {}) => ({
       },
       {
         test: /\.js$/,
-        use: ["babel-loader"],
+        use: [{
+          loader: "babel-loader",
+          query: {
+            presets: [
+              'es2015',
+              'stage-0'
+            ]
+          }
+        }],
         exclude: /node_modules/
       },
       {
@@ -68,8 +76,8 @@ module.exports = (options = {}) => ({
       );
     },
     proxy: {
-      "/api/": {
-        target: "http://127.0.0.1:8080",
+      "/pd/api/v1": {
+        target: "http://172.16.10.49:2379",
         changeOrigin: true,
         pathRewrite: {
           "^/api": ""
