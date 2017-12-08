@@ -1,3 +1,3 @@
 ## PD vis
 
-[](./demo-0.gif)
+![](./demo-0.gif)
