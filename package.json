@@ -33,5 +33,12 @@
     "vue-template-compiler": "^2.5.2",
     "webpack": "^2.4.1",
     "webpack-dev-server": "^2.4.2"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "semi": false,
+    "trailingComma": "es5",
+    "jsxBracketSameLine": true
   }
 }

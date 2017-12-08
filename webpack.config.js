@@ -60,7 +60,7 @@ module.exports = (options = {}) => ({
   },
   devServer: {
     host: "127.0.0.1",
-    port: 8010,
+    port: process.env.PORT || 8010,
     setup(app) {
       app.use(
         "/static/",
