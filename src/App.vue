@@ -15,7 +15,10 @@
 </template>
 
 <script>
-const PDHOST = location.host
+let PDHOST = location.host
+if(location.search && location.search.startsWith('?url=')) {
+  PDHOST = location.search.replace('?url=', '')
+}
 const PDAPI = `http://${PDHOST}/pd/api/v1`
 
 
@@ -23,12 +26,12 @@ const d3Base = require('d3')
 const annotation = require('d3-svg-annotation')
 // import "d3-hierarchy";
 import Circos from './circos/src/circos'
-import { interpolateYlGn } from 'd3-scale-chromatic'
+import { interpolateYlGn, interpolateGreens } from 'd3-scale-chromatic'
 import _ from 'lodash'
 import axios from 'axios'
 
-let d3 = Object.assign(d3Base, annotation, { interpolateYlGn })
-let layerCount
+let d3 = Object.assign(d3Base, annotation, { interpolateYlGn, interpolateGreens })
+let layerCount, hotSpots = []
 
 async function genStores() {
   // try catch, status need 200
@@ -36,16 +39,53 @@ async function genStores() {
     url: `${PDAPI}/stores`,
   })
 
+  let hotRes = await axios({
+    url: `${PDAPI}/hotspot/regions/write`
+  })
+  hotSpots = []
+  _.forEach(hotRes.data.as_peer, (list, id)=>{
+    const s = {
+      id: 'store'+id,
+      spots: []
+    }
+    s.spots = list.statistics.map(i=>{
+      const {flow_bytes, hot_degree} = i
+      return {
+        type:'peer',
+        io: 'write',
+        hot_degree,
+        flow_bytes
+      }
+    })
+    if(hotRes.data.as_leader[id]) {
+      const list = hotRes.data.as_leader[id]
+      const l = list.statistics.map(i=>{
+        const {flow_bytes, hot_degree} = i
+        return {
+          type:'leader',
+          io: 'write',
+          hot_degree,
+          flow_bytes
+        }
+      })
+      s.spots = s.spots.concat(l)
+    }
+    hotSpots.push(s)
+  })
+
+
   console.log(data)
-  data = {count: 3, stores: [{
+  console.log('hot res: ', hotRes.data)
+  console.log('hotspot ', hotSpots)
+  /*data = {count: 3, stores: [{
     store: {
       address: "172.16.10.50:20160",
       id: 5,
     },
     status: {
-      leader_count: 6,
-      region_count: 19,
-      all_count: 20,
+      leader_count: 600,
+      region_count: 900,
+      all_count: 3200,
     }
   }, {
     store: {
@@ -53,9 +93,9 @@ async function genStores() {
       id: 4,
     },
     status: {
-      leader_count: 8,
-      region_count: 19,
-      all_count: 20,
+      leader_count: 800,
+      region_count: 1900,
+      all_count: 3200,
     }
   }, {
     store: {
@@ -63,19 +103,21 @@ async function genStores() {
       id: 2,
     },
     status: {
-      leader_count: 5,
-      region_count: 19,
-      all_count: 20,
+      leader_count: 500,
+      region_count: 1200,
+      all_count: 3200,
     }
-  }]}
-
-  const total = _.sum(_.map(data.stores, 'status.all_count'))
+  }]}*/
+  const regionCList = _.map(data.stores, 'status.region_count')
+  const total = _.sum(regionCList)
+  var max = _.max(regionCList)
+  var min = _.min(regionCList)
   layerCount = Math.ceil(Math.sqrt(total / 13))
 
   let r = data.stores.map((i, idx) => {
     const {leader_count, region_count} = i.status
     return {
-      len: i.status.all_count/layerCount,
+      len: i.status.region_count/layerCount,
       label: `Store ${i.store.id} ${i.store.address}, with speed ${_.random(100, 900)}kbs`,
       id: 'store' + i.store.id,
       leader_count,
@@ -106,8 +148,11 @@ async function genStores() {
         (b.length == 1 ? '0' + b : b))
     )
   }
+
   r.forEach(i => {
-    i.color = rgbToHex(d3.interpolateYlGn((i.len - 27) / 7))
+    i.color = rgbToHex(d3.interpolateGreens(
+      0.2+(i.region_count-min)/(max == min ? 1 : max-min)*(0.8-0.2)
+    ))
     // delete i.color;
   })
   return r
@@ -127,6 +172,7 @@ function sampleValFn(p) {
 
 function createHotpotEffect() {
   var i = document.createElementNS('http://www.w3.org/2000/svg', 'animate')
+  i.setAttribute('class', 'hotspot-blink')
   i.setAttribute('values', '#800;#f00;#800;#800')
   i.setAttribute('dur', '0.8s')
   i.setAttribute('repeatCount', 'indefinite')
@@ -194,6 +240,10 @@ export default {
 
 
       let chords = _.range(_.random(4, 8)).map(i => {
+        const pix = ()=>{
+          return 1
+          return 0.2 + (layerCount > 50) ? 0.8 : layerCount/50*0.8
+        }
         const list = _.shuffle(labels)
         const source =list[0]
         const start = _.random(0, source.len - 1)
@@ -203,12 +253,12 @@ export default {
           source: {
             id: source.id,
             start,
-            end: start + 1,
+            end: start + pix(),
           },
           target: {
             id: target.id,
             start: start1,
-            end: start1 + 1,
+            end: start1 + pix(),
           },
         }
       })
@@ -410,21 +460,33 @@ export default {
         .render()
 
       setTimeout(() => {
-        const count = _.random(15, 30)
-        const length = document.querySelectorAll('path.tile').length
-        _.forEach(_.range(count), i => {
-          try{
-            document
-              .querySelectorAll('path.tile')
-              [_.random(0, length)].appendChild(createHotpotEffect())
-          }catch(e) {}
+        // const count = _.random(15, 30)
+        // const length = document.querySelectorAll('path.tile').length
+        // _.forEach(_.range(count), i => {
+        //   try{
+        //     document
+        //       .querySelectorAll('path.tile')
+        //       [_.random(0, length)].appendChild(createHotpotEffect())
+        //   }catch(e) {}
+        // })
+        d3.selectAll('.hotspot-blink').remove()
+        /*document.querySelectorAll('.hotspot-blink').ForEach(i=>{
+          i.parentNode.removeChild( i );
+        })*/
+        hotSpots.forEach(s=>{
+          _.forEach(s.spots, i=>{
+            try{
+              const tiles = document.querySelectorAll(`.stacks #block-${s.id} path.tile`)
+              tiles[_.random(0, tiles.length -1)].appendChild(createHotpotEffect())
+            }catch(e){}
+          })
         })
       }, 16)
     }
 
     drawCircos()
 
-    // setInterval(drawCircos, 6000)
+    setInterval(drawCircos, 6000)
   },
   methods: {
     startHacking() {
