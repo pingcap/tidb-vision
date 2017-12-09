@@ -75,6 +75,11 @@ module.exports = (options = {}) => ({
         express.static(path.join(__dirname, "src", "assets"))
       );
     },
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+      "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
+    },
     proxy: {
       "/pd/api/v1": {
         target: "http://172.16.10.49:2379",
