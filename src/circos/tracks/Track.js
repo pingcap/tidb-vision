@@ -39,10 +39,15 @@ export default class Track {
   }
 
   render (instance, parentElement, name) {
-    parentElement.select('.' + name).remove()
-    const track = parentElement.append('g')
-      .attr('class', name)
-      .attr('z-index', this.conf.zIndex)
+    let track = parentElement.select('.' + name)
+    if(track.empty()) {
+        track = parentElement.append('g')
+        .attr('class', name)
+        .attr('z-index', this.conf.zIndex)
+    }
+
+    // parentElement.select('.' + name).remove()
+
     const datumContainer = this.renderBlock(track, this.data, instance._layout, this.conf)
     if (this.conf.axes && this.conf.axes.length > 0) {
       renderAxes(datumContainer, this.conf, instance, this.scale)
@@ -70,14 +75,14 @@ export default class Track {
   }
 
   renderBlock (parentElement, data, layout, conf) {
-    const block = parentElement.selectAll('.block')
-      .data(data)
-      .enter().append('g')
+    let block = parentElement.selectAll('.block')
+      .data(data, d=>d.key)
+    block.enter().append('g')
+      .attr('id', (d)=> {
+        return `block-${d.key}`
+      })
       .attr('class', 'block')
-      .attr(
-        'transform',
-        (d) => `rotate(${layout.blocks[d.key].start * 360 / (2 * Math.PI)})`
-      )
+    block.exit().remove()
 
     if (conf.backgrounds) {
       block.selectAll('.background')
@@ -111,8 +116,10 @@ export default class Track {
           .endAngle((d) => d.angle)
         )
     }
-
-    return block
+    return parentElement.selectAll('.block').data(data, d=>d.key).attr(
+      'transform',
+      (d) => `rotate(${layout.blocks[d.key].start * 360 / (2 * Math.PI)})`
+    )
   }
 
   theta (position, block) {

@@ -25,8 +25,8 @@ export default class Text extends Track {
   }
 
   renderDatum (parentElement, conf, layout) {
-    const text = parentElement.selectAll('g')
-      .data((d) => d.values.map((item) => {
+    let text = parentElement.selectAll('g')
+      .data(d => d.values.map((item) => {
         item._angle = this.theta(
           item.position,
           layout.blocks[item.block_id]
@@ -34,18 +34,26 @@ export default class Text extends Track {
         item._anchor = item._angle > 90 ? 'end' : 'start'
         item._rotate = item._angle > 90 ? 180 : 0
         return item
-      }))
-      .enter().append('g')
+      }), d => JSON.stringify(d.value))
+      text.exit().attr('class', 'slideOutDown').transition().delay(1000).remove()
+
+      text = text.enter().append('g')
+      .attr('class', 'slideInUp')
       .append('text')
-      .text((d) => d.value)
       .attr('transform', (d) => {
         return `
           rotate(${d._angle})
           translate(${conf.innerRadius}, 0)
           rotate(${d._rotate})
-        `
+        ` // rotate(${d._angle}) rotate(${d._rotate})
       })
       .attr('text-anchor', (d) => d._anchor)
+      .selectAll('tspan')
+      .data(d=>d.value).enter().append('tspan')
+      .text(d=>d).attr('x', 0).attr('dy', '1.2em')
+
+      text.exit().transition().delay(2000).attr('class', 'slideInUp').remove()
+
     forEach(conf.style, (value, key) => {
       text.style(key, value)
     })

@@ -124,7 +124,7 @@ export default class Stack extends Track {
   renderDatum (parentElement, conf, layout) {
     const that = this
 
-    return parentElement.selectAll('.tile')
+    let tiles = parentElement.selectAll('.tile')
       .data((d) => {
         return d.values.map((datum) => {
           const radius = that.datumRadialPosition(datum)
@@ -135,13 +135,21 @@ export default class Stack extends Track {
             endAngle: this.theta(datum.end, layout.blocks[datum.block_id])
           })
         })
-      })
-      .enter().append('path')
-      .attr('class', 'tile')
-      .attr('d', arc())
-      .attr('opacity', conf.opacity)
-      .attr('stroke-width', conf.strokeWidth)
-      .attr('stroke', conf.strokeColor)
-      .attr('fill', conf.colorValue)
+      }, (d)=>d.value)
+
+      tiles.exit().transition()
+        .duration(2000)
+        .attr('opacity', 0)
+        .attr('stroke', 'blue')
+        .attr('fill', 'yellow').remove()
+
+      return tiles.enter().append('path')
+        .attr('class', 'tile')
+        .attr('d', arc())
+        .attr('opacity', conf.opacity)
+        .attr('stroke-width', conf.strokeWidth)
+        .attr('stroke', conf.strokeColor)
+        .attr('fill', conf.colorValue)
+
   }
 }

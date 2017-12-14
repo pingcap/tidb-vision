@@ -26,8 +26,11 @@ export default class Histogram extends Track {
 
   renderDatum (parentElement, conf, layout) {
     const bin = parentElement.selectAll('.bin')
-      .data((d) => d.values)
-      .enter().append('path')
+      .data((d) => d.values, d => JSON.stringify(d.values))
+
+      bin.exit().remove()
+
+      return bin.enter().append('path')
       .attr('class', 'bin')
       .attr('opacity', (d) => conf.opacity)
       .attr('d', arc()
@@ -45,8 +48,6 @@ export default class Histogram extends Track {
         })
         .startAngle((d) => this.theta(d.start, layout.blocks[d.block_id]))
         .endAngle((d) => this.theta(d.end, layout.blocks[d.block_id]))
-      )
-    bin.attr('fill', conf.colorValue)
-    return bin
+      ).attr('fill', conf.colorValue)
   }
 }

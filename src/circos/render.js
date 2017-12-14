@@ -38,7 +38,7 @@ export default function render (ids = [], removeTracks, circos) {
   }
 
   // re-order tracks and layout according to z-index
-  const trackContainers = svg.selectAll('.all > g').remove()
+  const trackContainers = svg.selectAll('.all > g') // .remove()
   const sortedTrackContainers = sortBy(
     trackContainers._groups[0],
     (elt) => elt.getAttribute('z-index')

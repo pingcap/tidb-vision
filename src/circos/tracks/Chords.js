@@ -6,6 +6,8 @@ import assign from 'lodash/assign'
 import isFunction from 'lodash/isFunction'
 import {event} from 'd3-selection'
 
+const d3 = require('d3')
+
 import {common, values} from '../configs'
 
 const defaultConf = assign({
@@ -55,41 +57,69 @@ export default class Chords extends Track {
   }
 
   renderChords (parentElement, name, conf, data, instance, getCoordinates) {
-    const track = parentElement.append('g')
+    let track = parentElement.select('g')
+    if(track.empty()) {
+      track = parentElement.append('g')
+    }
 
-    const link = track
+
+    let _link = track
       .selectAll('.chord')
-      .data(data)
-      .enter().append('path')
-      .attr('class', 'chord')
-      .attr('d', ribbon()
-        .source((d) => getCoordinates(d.source, instance._layout, this.conf, d))
-        .target((d) => getCoordinates(d.target, instance._layout, this.conf, d))
-      )
-      .attr('opacity', conf.opacity)
-      .on('mouseover', (d) => {
-        this.dispatch.call('mouseover', this, d)
-        instance.clipboard.attr('value', conf.tooltipContent(d))
+      .data(data, function(d) {
+        return `${d.type}-${d.source.start}-${d.target.start}`
       })
-      .on('mouseout', (d) =>
-        this.dispatch.call('mouseout', this, d)
-      )
+
+    let link = _link.enter().append('path')
+      .attr('class', function(d){
+        return 'chord ' + d.type
+      }).attr('d', ribbon()
+              .source((d) => getCoordinates(d.source, instance._layout, this.conf, d))
+              .target((d) => getCoordinates(d.target, instance._layout, this.conf, d))
+            ).attr('opacity', 1)
+                .attr('stroke-opacity', 0.7)
+                .attr('fill', 'white').attr('stroke', 'red')
+
+    _link.exit().transition()
+      .duration(2000)
+      .attr('opacity', 0)
+      .attr('stroke', 'blue')
+      .attr('fill', 'yellow').remove()
+
+    link.transition().duration(2000)
+          .style("fill", conf.colorValue)
+          .attr('opacity', conf.opacity)
+
+
+
+
+
+
+      // link
+      // .transition().duration(1000)
+      // .attr('opacity', conf.opacity)
+      // .on('mouseover', (d) => {
+      //   // this.dispatch.call('mouseover', this, d)
+      //   // instance.clipboard.attr('value', conf.tooltipContent(d))
+      // })
+      // .on('mouseout', (d) => {
+      //   // this.dispatch.call('mouseout', this, d)
+      // })
 
     Object.keys(conf.events).forEach((eventName) => {
       link.on(eventName, function (d, i, nodes) { conf.events[eventName](d, i, nodes, event) })
     })
 
-    link.attr('fill', conf.colorValue)
-
     return link
   }
 
   render (instance, parentElement, name) {
-    parentElement.select('.' + name).remove()
-
-    const track = parentElement.append('g')
-      .attr('class', name)
-      .attr('z-index', this.conf.zIndex)
+    // parentElement.select('.' + name).remove()
+    let track = parentElement.select('g.'+name)
+    if(track.empty()) {
+      track = parentElement.append('g')
+        .attr('class', name)
+        .attr('z-index', this.conf.zIndex)
+    }
 
     const selection = this.renderChords(
       track,
