@@ -81,12 +81,15 @@ module.exports = (options = {}) => ({
       "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
     },
     proxy: {
-      "/pd/api/v1": {
+      /*"/pd/api/v1": {
         target: "http://172.16.10.49:2379",
         changeOrigin: true,
         pathRewrite: {
           "^/api": ""
         }
+      },*/
+      "/pd/api/v1": {
+        target: `http://localhost:${process.env.MOCK_PORT || 9000}`,
       }
     },
     historyApiFallback: {
