@@ -1,36 +1,30 @@
 <template>
   <div id="app">
-    <!-- <svg width="1200" height="960" font-family="sans-serif" font-size="10" text-anchor="middle"></svg> -->
-    <div id="circos-chart">
-    </div>
+    <div id="circos-chart"></div>
     <div class="info-container info-host"></div>
-
-      <div class="info-container info-metric"></div>
-
-        <div class="info-container info-transfer"></div>
-
-      <!-- <button @click="startHacking">Start</button> -->
+    <div class="info-container info-metric"></div>
+    <div class="info-container info-transfer"></div>
     </div>
   </div>
 </template>
 
 <script>
+
+import {
+  d3, _, axios, Circos
+} from './vendor'
+
+/* Constant */
 let PDHOST = location.host
 if(location.search && location.search.startsWith('?url=')) {
   PDHOST = location.search.replace('?url=', '')
 }
 const PDAPI = `http://${PDHOST}/pd/api/v1`
 
+let timerHandler = {
+    intervalUpdateTimer : null
+}
 
-const d3Base = require('d3')
-const annotation = require('d3-svg-annotation')
-// import "d3-hierarchy";
-import Circos from './circos/src/circos'
-import { interpolateYlGn, interpolateGreens } from 'd3-scale-chromatic'
-import _ from 'lodash'
-import axios from 'axios'
-
-let d3 = Object.assign(d3Base, annotation, { interpolateYlGn, interpolateGreens })
 let layerCount, hotSpots = []
 
 async function genStores() {
@@ -73,42 +67,7 @@ async function genStores() {
     hotSpots.push(s)
   })
 
-
-  console.log(data)
-  console.log('hot res: ', hotRes.data)
-  console.log('hotspot ', hotSpots)
-  /*data = {count: 3, stores: [{
-    store: {
-      address: "172.16.10.50:20160",
-      id: 5,
-    },
-    status: {
-      leader_count: 600,
-      region_count: 900,
-      all_count: 3200,
-    }
-  }, {
-    store: {
-      address: "172.16.10.50:20160",
-      id: 4,
-    },
-    status: {
-      leader_count: 800,
-      region_count: 1900,
-      all_count: 3200,
-    }
-  }, {
-    store: {
-      address: "172.16.10.50:20160",
-      id: 2,
-    },
-    status: {
-      leader_count: 500,
-      region_count: 1200,
-      all_count: 3200,
-    }
-  }]}*/
-  const regionCList = _.map(data.stores, 'status.region_count')
+  const regionCList = _.map(data.stores, 'status.all_count')
   const total = _.sum(regionCList)
   var max = _.max(regionCList)
   var min = _.min(regionCList)
@@ -117,7 +76,7 @@ async function genStores() {
   let r = data.stores.map((i, idx) => {
     const {leader_count, region_count} = i.status
     return {
-      len: i.status.region_count/layerCount,
+      len: i.status.all_count/layerCount,
       label: `Store ${i.store.id} ${i.store.address}, with speed ${_.random(100, 900)}kbs`,
       id: 'store' + i.store.id,
       leader_count,
@@ -153,7 +112,6 @@ async function genStores() {
     i.color = rgbToHex(d3.interpolateGreens(
       0.2+(i.region_count-min)/(max == min ? 1 : max-min)*(0.8-0.2)
     ))
-    // delete i.color;
   })
   return r
 }
@@ -163,10 +121,6 @@ function sampleValFn(p) {
   if (v < p) {
     return 2000
   }
-  // else if (v > 0.9) {
-  //   // 0.1 possible un used
-  //   return 0;
-  // }
   return 1000
 }
 
@@ -184,12 +138,6 @@ function createHotpotEffect() {
 let isInit = false,
   pdVisInstance = null
 
-
-  // "balance-leader (kind:leader, region:2585, createAt:2017-12-04 18:16:48.935239561 +0800 CST m=+1032.706208536, currentStep:1, steps:[transfer leader from store 2 to store 1]) finished",
-  // "balance-leader (kind:leader, region:2565, createAt:2017-12-04 18:16:50.111570579 +0800 CST m=+1033.882539610, currentStep:1, steps:[transfer leader from store 2 to store 5]) finished",
-  // "balance-leader (kind:leader, region:2561, createAt:2017-12-04 18:16:50.080836039 +0800 CST m=+1033.851805088, currentStep:1, steps:[transfer leader from store 2 to store 1]) finished",
-
-
 export default {
   async mounted() {
     const annoInstance = d3.annotation()
@@ -197,14 +145,6 @@ export default {
               .append("g")
               .attr("class", "annotation-group")
     async function drawCircos(error) {
-      // document.querySelector('body').style.backgroundColor = 'green'
-      //
-      // d3
-      //   .select('body')
-      //   .transition(t)
-      //   .style('background-color', function() {
-      //     return d3.interpolate('green', 'red')
-      //   })
 
       /*
         Generate regions data
@@ -216,27 +156,57 @@ export default {
       // thickness and layer count : (117.8((780/2-80)*0.38) = x*y)
 
       let stacks = []
+      if(!stacks.stores) stacks.stores = {}
       const STACKPIXEL = 160;
       const thickness = STACKPIXEL / layerCount
       labels.forEach(s => {
-        let slist = _.shuffle([...Array(s.leader_count).fill(2000), ...Array(s.region_count - s.leader_count).fill(1000)])
-        _.range(s.len).forEach(i => {
-          _.range(layerCount).forEach(x => {
-            let item = {
-              block_id: s.id,
-              start: i,
-              end: i + 1,
-              value: slist.pop() || 0  // sampleValFn(0.33),
-            }
-            // if ((i + 1) * layerCount + x + 1 > s.len * layerCount * 0.8) {
-            //   item.value = 0
-            // }
-            stacks.push(item)
+        // normalize leader/follower
+
+        if(false && stacks.stores[s.id]) {
+
+        } else {
+          const followCount = s.region_count - s.leader_count
+          let idx = 0, fCount = 0,lCount = 0;
+          _.range(s.len).forEach(i => {
+            _.range(layerCount).forEach(x => {
+              ++idx
+              let item = {
+                block_id: s.id,
+                start: i,
+                end: i + 1,
+              }
+              if(idx > s.region_count) {
+                item.value = 0
+              } else if((idx % 3) === 2) {
+                if(lCount + 1 > s.leader_count) {
+                  item.value = 1000
+                } else {
+                  item.value = 2000
+                  ++lCount
+                }
+              } else {
+                if(fCount + 1 > followCount) {
+                  item.value = 2000
+                } else {
+                  item.value = 1000
+                  ++fCount
+                }
+              }
+
+              // if ((i + 1) * layerCount + x + 1 > s.len * layerCount * 0.8) {
+              //   item.value = 0
+              // }
+              stacks.push(item)
+            })
           })
-        })
+        }
+        stacks.stores[s.id] = {
+          leader_count: s.leader_count,
+          region_count: s.region_count
+        }
       })
       stacks.columns = ['store', 'start', 'end', 'value']
-      // end stacks
+      // console.log('stacks is: ', stacks)
 
 
       let chords = _.range(_.random(4, 8)).map(i => {
@@ -250,6 +220,7 @@ export default {
         const target = list[1]
         const start1 = _.random(0, target.len - 1)
         return {
+          type: i % 2 ? 'leader' : 'follower',
           source: {
             id: source.id,
             start,
@@ -262,24 +233,13 @@ export default {
           },
         }
       })
-      console.log('chords is: ', chords)
+      // console.log('chords is: ', chords)
 
-      let line = []
-      _.forEach(labels, s => {
-        _.forEach(_.range(s.len), i => {
-          _.forEach(_.range(10), x => {
-            line.push({
-              block_id: s.id,
-              value: _.random(20, 100),
-              position: i + x * 0.1,
-            })
-          })
-        })
-      })
 
+      // write hist
       let hist = []
       _.forEach(labels, s => {
-        _.forEach(_.range(s.len - 4), i => {
+        _.forEach(_.range(Math.ceil(s.len/(2+Math.random()))), i => {
           let value = 0
           if(i == 0) {
             value = _.random(60, 100)
@@ -293,6 +253,35 @@ export default {
             value
           })
         })
+      })
+      // console.log('hisogram is: ', hist)
+
+      let hist1 = []
+      _.forEach(labels, s => {
+        _.forEach(_.range(Math.ceil(s.len/(2+Math.random()))), i => {
+          let value = 0
+          if(i == 0) {
+            value = _.random(60, 100)
+          } else {
+            value = _.random(20, 40)
+          }
+          hist1.push({
+            end: s.len - i - (i == 1 ? 1 : 0 ),
+            start: s.len - i - (i == 0 ? 2 : 1 ),
+            block_id: s.id,
+            value
+          })
+        })
+      })
+      // console.log('hisogram is: ', hist1)
+
+      let text = []
+      text = _.map(labels, s => {
+        return {
+          block_id: s.id,
+          position: s.len/2,
+          value: `Region: ${_.random(-4, 10)}\n Leader: ${_.random(-4, 10)}`.split('\n')
+        }
       })
 
       var width = 980
@@ -324,12 +313,6 @@ export default {
               subject: { radius: 40, radiusPadding: 4 }
             }])
 
-            // debugger;
-            // d3.select("svg")
-            //   .append("g")
-            //   .attr("class", "annotation-group")
-            //   .call(make)
-
             d3.select("svg .annotation-group")
               .call(make)
 
@@ -338,7 +321,6 @@ export default {
             const g = p.querySelectorAll('.stacks g')[i]
             const t =
               g.attributes.transform.value.slice(0, -1) + 'deg)'.replace('rotate(', 'rotate(-')
-            console.log(t)
             document.querySelector('#circos-chart').style.transform = t
           },
         },
@@ -368,12 +350,11 @@ export default {
           radialMargin: 0,
           direction: 'out',
           strokeWidth: 0,
-          tooltipContent: function(d) {
-            return 'region info'
-          },
+          // tooltipContent: function(d) {
+          //   return 'region info'
+          // },
           events: {
             'click': (d, i, nodes, e)=>{
-              console.log('d is ', d, i)
               const make = annoInstance.annotations([{
                 type: d3.annotationCalloutCircle,
                 color: "#E8336D",
@@ -453,10 +434,20 @@ export default {
             },
           }
         })
-        // .line('line', line, {
-        //   color: 'green',
-        //   opacity: 0.6,
-        // })
+        .histogram('histogram1', hist1, {
+          innerRadius: 1.01,
+          outerRadius: 1.2,
+          color: 'GnBu',
+        })
+        .text('text', text, {
+          innerRadius: 1.1,
+          outerRadius: 1.2,
+          style: {
+            'font-size': 18,
+            fill: 'pink',
+            opacity: 1,
+          },
+        })
         .render()
 
       setTimeout(() => {
@@ -470,9 +461,6 @@ export default {
         //   }catch(e) {}
         // })
         d3.selectAll('.hotspot-blink').remove()
-        /*document.querySelectorAll('.hotspot-blink').ForEach(i=>{
-          i.parentNode.removeChild( i );
-        })*/
         hotSpots.forEach(s=>{
           _.forEach(s.spots, i=>{
             try{
@@ -486,7 +474,19 @@ export default {
 
     drawCircos()
 
-    setInterval(drawCircos, 6000)
+    timerHandler.intervalUpdateTimer = setInterval(drawCircos, 6000)
+    window.drawCircos = drawCircos
+
+    d3.select(document).on('visibilitychange', function(){
+      console.log('is runing visibilitychange')
+      clearInterval(timerHandler.intervalUpdateTimer);
+      if(document.hidden) {
+        clearInterval(timerHandler.intervalUpdateTimer);
+      } else {
+        drawCircos()
+        timerHandler.intervalUpdateTimer = setInterval(drawCircos, 6000)
+      }
+    });
   },
   methods: {
     startHacking() {
@@ -501,14 +501,17 @@ export default {
   font-family: Helvetica, sans-serif;
   text-align: center;
 }
-.chord {
-  stroke-width: 5;
+.chord.follower {
+  stroke-width: 3;
   stroke-dasharray: 500;
   stroke-dashoffset: 500;
   animation: dash 3s linear forwards;
   animation-iteration-count: infinite;
 }
-.histogram .bin {
+.chord.leader{
+
+}
+.histogram .bin, .histogram1 .bin {
   animation: tada 3s linear forwards;
   animation-iteration-count: infinite;
 }
@@ -525,4 +528,43 @@ export default {
     stroke-dashoffset: 0;
   }
 }
+
+@keyframes slideInUp {
+  from {
+    transform: translate3d(-100%, 0, 0);
+    visibility: visible;
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.slideInUp {
+  animation-duration: 1s;
+animation-fill-mode: both;
+animation-iteration-count: 1;
+  animation-name: slideInUp;
+}
+
+@keyframes slideOutDown {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+
+  to {
+    visibility: hidden;
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+.slideOutDown {
+  animation-duration: 1s;
+animation-fill-mode: both;
+animation-iteration-count: 1;
+  animation-name: slideOutDown;
+}
+
 </style>
