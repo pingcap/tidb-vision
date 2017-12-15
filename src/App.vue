@@ -2,7 +2,7 @@
   <div id="app">
     <div id="circos-chart"></div>
     <div class="info-container info-host"></div>
-    <div class="info-container info-metric"></div>
+    <svg class="info-container info-legend"></svg>
     <div class="info-container info-transfer"></div>
     </div>
   </div>
@@ -13,6 +13,8 @@
 import {
   d3, _, axios, Circos
 } from './vendor'
+
+import {createHotpotEffect, sampleValFn, rgbToHex} from './helper'
 
 /* Constant */
 let PDHOST = location.host
@@ -25,114 +27,215 @@ let timerHandler = {
     intervalUpdateTimer : null
 }
 
-let layerCount, hotSpots = []
-
+let layerCount, thickness, hotSpots = [], lastDataM = {}
+const STACKPIXEL = 160;
 async function genStores() {
   // try catch, status need 200
   let {status, data} = await axios({
-    url: `${PDAPI}/stores`,
+    url: `${PDAPI}/trend`,
   })
 
-  let hotRes = await axios({
-    url: `${PDAPI}/hotspot/regions/write`
-  })
-  hotSpots = []
-  _.forEach(hotRes.data.as_peer, (list, id)=>{
-    const s = {
-      id: 'store'+id,
+  // debugger;
+  hotSpots = data.stores.map(i=>{
+    let s = {
+      id: 'store'+i.id,
       spots: []
     }
-    s.spots = list.statistics.map(i=>{
-      const {flow_bytes, hot_degree} = i
-      return {
-        type:'peer',
-        io: 'write',
-        hot_degree,
-        flow_bytes
-      }
-    })
-    if(hotRes.data.as_leader[id]) {
-      const list = hotRes.data.as_leader[id]
-      const l = list.statistics.map(i=>{
-        const {flow_bytes, hot_degree} = i
-        return {
-          type:'leader',
-          io: 'write',
-          hot_degree,
-          flow_bytes
-        }
+    for(let t of ['hot_write_region_flows', 'hot_read_region_flows']) {
+      i[t] && i[t].forEach(value=>{
+        s.spots.push({
+          type:'peer',
+          io: t,
+          value
+        })
       })
-      s.spots = s.spots.concat(l)
     }
-    hotSpots.push(s)
+    return s
   })
 
-  const regionCList = _.map(data.stores, 'status.all_count')
+
+  data.stores = data.stores.map(i=>{
+    i.all_count = Math.ceil(i.capacity / ((i.capacity - i.available) / i.region_count))
+    return i
+  })
+  const regionCList = _.map(data.stores, 'all_count')
   const total = _.sum(regionCList)
   var max = _.max(regionCList)
   var min = _.min(regionCList)
   layerCount = Math.ceil(Math.sqrt(total / 13))
 
-  let r = data.stores.map((i, idx) => {
-    const {leader_count, region_count} = i.status
+  const storeM = {}
+  let labels = data.stores.map((i, idx) => {
+    const {leader_count, region_count} = i
+    const {hot_write_flow, hot_read_flow, hot_write_region_flows, hot_read_region_flows,} = i
     return {
-      len: i.status.all_count/layerCount,
-      label: `Store ${i.store.id} ${i.store.address}, with speed ${_.random(100, 900)}kbs`,
-      id: 'store' + i.store.id,
+      len: i.all_count/layerCount,
+      ratio: 1 - i.available/i.capacity,
+      label: `Store ${i.id} ${i.address}, with speed ${_.random(100, 900)}kbs`,
+      id: 'store' + i.id,
+      _id: i.id,
+      hot_write_flow, hot_read_flow,
+      hot_write_region_flows, hot_read_region_flows,
       leader_count,
       region_count
     }
   })
-
-
-  function rgbToHex(color) {
-    color = '' + color
-    if (!color || color.indexOf('rgb') < 0) {
-      return
-    }
-
-    if (color.charAt(0) == '#') {
-      return color
-    }
-
-    var nums = /(.*?)rgb\((\d+),\s*(\d+),\s*(\d+)\)/i.exec(color),
-      r = parseInt(nums[2], 10).toString(16),
-      g = parseInt(nums[3], 10).toString(16),
-      b = parseInt(nums[4], 10).toString(16)
-
-    return (
-      '#' +
-      ((r.length == 1 ? '0' + r : r) +
-        (g.length == 1 ? '0' + g : g) +
-        (b.length == 1 ? '0' + b : b))
-    )
-  }
-
-  r.forEach(i => {
-    i.color = rgbToHex(d3.interpolateGreens(
-      0.2+(i.region_count-min)/(max == min ? 1 : max-min)*(0.8-0.2)
-    ))
+  labels.forEach(i=>{
+    storeM[i._id] = i
   })
-  return r
-}
 
-function sampleValFn(p) {
-  const v = Math.random()
-  if (v < p) {
-    return 2000
-  }
-  return 1000
-}
+  labels.forEach(i => {
+    i.color = 'url(#mainGradient)'
+    /*rgbToHex(d3.interpolateGreens(
+      0.2+(i.region_count-min)/(max == min ? 1 : max-min)*(0.8-0.2)
+    ))*/
+  })
 
-function createHotpotEffect() {
-  var i = document.createElementNS('http://www.w3.org/2000/svg', 'animate')
-  i.setAttribute('class', 'hotspot-blink')
-  i.setAttribute('values', '#800;#f00;#800;#800')
-  i.setAttribute('dur', '0.8s')
-  i.setAttribute('repeatCount', 'indefinite')
-  i.setAttribute('attributeType', 'XML')
-  i.setAttribute('attributeName', 'fill')
-  return i
+
+  let text = []
+  text = _.map(labels, s => {
+    const t = v=> v > 0 ? ('+'+v) : (''+v)
+    const b = lastDataM[s._id]
+    const rdiff = b ? (s.region_count - b.region_count) : 0
+    const ldiff = b ? (s.leader_count - b.leader_count) : 0
+    const has = rdiff && ldiff
+    return {
+      block_id: s.id,
+      position: s.len/2,
+      value: has ? `Region: ${t(rdiff)}\n Leader: ${t(ldiff)}`.split('\n') : ''
+    }
+  })
+
+
+  // value: not used: 0, region: 1000, leader: 2000
+  // thickness and layer count : (117.8((780/2-80)*0.38) = x*y)
+  thickness = STACKPIXEL / layerCount
+  let stacks = []
+  if(!stacks.stores) stacks.stores = {}
+  labels.forEach(s => {
+    // normalize leader/follower
+
+    if(false && stacks.stores[s.id]) {
+
+    } else {
+      const followCount = s.region_count - s.leader_count
+      let idx = 0, fCount = 0,lCount = 0;
+      _.range(s.len).forEach(i => {
+        _.range(layerCount).forEach(x => {
+          ++idx
+          let item = {
+            block_id: s.id,
+            start: i,
+            end: i + 1,
+          }
+          if(idx > s.region_count) {
+            item.value = 0
+          } else if((idx % 3) === 2) {
+            if(lCount + 1 > s.leader_count) {
+              item.value = 1000
+            } else {
+              item.value = 2000
+              ++lCount
+            }
+          } else {
+            if(fCount + 1 > followCount) {
+              item.value = 2000
+            } else {
+              item.value = 1000
+              ++fCount
+            }
+          }
+          if(item.value === 0) {
+            item.type = 'empty'
+          }
+
+          // if ((i + 1) * layerCount + x + 1 > s.len * layerCount * 0.8) {
+          //   item.value = 0
+          // }
+          stacks.push(item)
+        })
+      })
+    }
+    stacks.stores[s.id] = {
+      leader_count: s.leader_count,
+      region_count: s.region_count
+    }
+  })
+  stacks.columns = ['store', 'start', 'end', 'value']
+  // console.log('stacks is: ', stacks)
+
+  // 动态根据 store 数量和
+  let chords = _.map(data.history.entries, i=>{
+    const pix = ()=>{
+      return 0.5 + 0.2 * i.count
+      // return 0.2 + (layerCount > 50) ? 0.8 : layerCount/50*0.8
+    }
+    const s = storeM[i.from]
+    const t = storeM[i.to]
+    const w = pix()
+    const start = _.random(0, s.len*s.ratio-w)
+    const start1 = t ? _.random(0, t.len*t.ratio-w) : 2
+    return {
+      type: i.kind,
+      source: {
+        id: 'store'+i.from,
+        start,
+        end: start + w,
+      },
+      target: {
+        id: 'store'+i.to,
+        start: start1,
+        end: start1 + w,
+      },
+    }
+  })
+  // console.log('chords is: ', chords)
+
+  // write hist
+  let hist = []
+  _.forEach(labels, s => {
+    let flows = s.hot_write_region_flows
+    s.hot_write_flow && hist.push({
+      start: 0,
+      end: 2,
+      block_id: s.id,
+      value: s.hot_write_flow
+    })
+    flows && flows.forEach((value, i) => {
+      hist.push({
+        start: i + 2,
+        end: i + 3,
+        block_id: s.id,
+        value
+      })
+    })
+  })
+  // console.log('hisogram is: ', hist)
+
+  let hist1 = []
+  _.forEach(labels, s => {
+    let flows = s.hot_read_region_flows
+    s.hot_read_flow && hist1.push({
+      start: s.len - 2,
+      end: s.len,
+      block_id: s.id,
+      value: s.hot_read_flow
+    })
+    flows && flows.forEach((value, i) => {
+      hist1.push({
+        start: s.len - i - 3,
+        end: s.len - i - 2,
+        block_id: s.id,
+        value
+      })
+    })
+  })
+  // console.log('hisogram is: ', hist1)
+
+  labels.forEach(i=>{
+    lastDataM[i._id] = i
+  })
+  return {labels, stacks, chords, hist, hist1, text}
 }
 
 let isInit = false,
@@ -150,139 +253,7 @@ export default {
         Generate regions data
        */
 
-      const labels = await genStores()
-
-      // value: not used: 0, region: 1000, leader: 2000
-      // thickness and layer count : (117.8((780/2-80)*0.38) = x*y)
-
-      let stacks = []
-      if(!stacks.stores) stacks.stores = {}
-      const STACKPIXEL = 160;
-      const thickness = STACKPIXEL / layerCount
-      labels.forEach(s => {
-        // normalize leader/follower
-
-        if(false && stacks.stores[s.id]) {
-
-        } else {
-          const followCount = s.region_count - s.leader_count
-          let idx = 0, fCount = 0,lCount = 0;
-          _.range(s.len).forEach(i => {
-            _.range(layerCount).forEach(x => {
-              ++idx
-              let item = {
-                block_id: s.id,
-                start: i,
-                end: i + 1,
-              }
-              if(idx > s.region_count) {
-                item.value = 0
-              } else if((idx % 3) === 2) {
-                if(lCount + 1 > s.leader_count) {
-                  item.value = 1000
-                } else {
-                  item.value = 2000
-                  ++lCount
-                }
-              } else {
-                if(fCount + 1 > followCount) {
-                  item.value = 2000
-                } else {
-                  item.value = 1000
-                  ++fCount
-                }
-              }
-
-              // if ((i + 1) * layerCount + x + 1 > s.len * layerCount * 0.8) {
-              //   item.value = 0
-              // }
-              stacks.push(item)
-            })
-          })
-        }
-        stacks.stores[s.id] = {
-          leader_count: s.leader_count,
-          region_count: s.region_count
-        }
-      })
-      stacks.columns = ['store', 'start', 'end', 'value']
-      // console.log('stacks is: ', stacks)
-
-
-      let chords = _.range(_.random(4, 8)).map(i => {
-        const pix = ()=>{
-          return 1
-          return 0.2 + (layerCount > 50) ? 0.8 : layerCount/50*0.8
-        }
-        const list = _.shuffle(labels)
-        const source =list[0]
-        const start = _.random(0, source.len - 1)
-        const target = list[1]
-        const start1 = _.random(0, target.len - 1)
-        return {
-          type: i % 2 ? 'leader' : 'follower',
-          source: {
-            id: source.id,
-            start,
-            end: start + pix(),
-          },
-          target: {
-            id: target.id,
-            start: start1,
-            end: start1 + pix(),
-          },
-        }
-      })
-      // console.log('chords is: ', chords)
-
-
-      // write hist
-      let hist = []
-      _.forEach(labels, s => {
-        _.forEach(_.range(Math.ceil(s.len/(2+Math.random()))), i => {
-          let value = 0
-          if(i == 0) {
-            value = _.random(60, 100)
-          } else {
-            value = _.random(20, 40)
-          }
-          hist.push({
-            start: i + (i == 1 ? 1 : 0 ),
-            end: i + (i == 0 ? 2 : 1 ),
-            block_id: s.id,
-            value
-          })
-        })
-      })
-      // console.log('hisogram is: ', hist)
-
-      let hist1 = []
-      _.forEach(labels, s => {
-        _.forEach(_.range(Math.ceil(s.len/(2+Math.random()))), i => {
-          let value = 0
-          if(i == 0) {
-            value = _.random(60, 100)
-          } else {
-            value = _.random(20, 40)
-          }
-          hist1.push({
-            end: s.len - i - (i == 1 ? 1 : 0 ),
-            start: s.len - i - (i == 0 ? 2 : 1 ),
-            block_id: s.id,
-            value
-          })
-        })
-      })
-      // console.log('hisogram is: ', hist1)
-
-      let text = []
-      text = _.map(labels, s => {
-        return {
-          block_id: s.id,
-          position: s.len/2,
-          value: `Region: ${_.random(-4, 10)}\n Leader: ${_.random(-4, 10)}`.split('\n')
-        }
-      })
+      const {labels, stacks, chords, hist, hist1, text} = await genStores()
 
       var width = 980
       if (!pdVisInstance) {
@@ -291,6 +262,21 @@ export default {
           width: width * 1.2,
           height: width * 1.2,
         })
+
+        var svgDefs = d3.select('#circos-chart svg').append('defs');
+        const c1 = rgbToHex(d3.interpolateGreens(0.1))
+        const c2 = rgbToHex(d3.interpolateGreens(0.5))
+        var mainGradient = svgDefs.append('linearGradient')
+            .attr('id', 'mainGradient');
+        // Create the stops of the main gradient. Each stop will be assigned
+        // a class to style the stop using CSS.
+        mainGradient.append('stop')
+            .attr('stop-color', c1)
+            .attr('offset', '0');
+        mainGradient.append('stop')
+            .attr('stop-color', c2)
+            .attr('offset', '1');
+
       }
 
       const layoutConf = {
@@ -451,20 +437,11 @@ export default {
         .render()
 
       setTimeout(() => {
-        // const count = _.random(15, 30)
-        // const length = document.querySelectorAll('path.tile').length
-        // _.forEach(_.range(count), i => {
-        //   try{
-        //     document
-        //       .querySelectorAll('path.tile')
-        //       [_.random(0, length)].appendChild(createHotpotEffect())
-        //   }catch(e) {}
-        // })
         d3.selectAll('.hotspot-blink').remove()
         hotSpots.forEach(s=>{
           _.forEach(s.spots, i=>{
             try{
-              const tiles = document.querySelectorAll(`.stacks #block-${s.id} path.tile`)
+              const tiles = document.querySelectorAll(`.stacks #block-${s.id} path.tile:not(.empty)`)
               tiles[_.random(0, tiles.length -1)].appendChild(createHotpotEffect())
             }catch(e){}
           })
@@ -477,6 +454,7 @@ export default {
     timerHandler.intervalUpdateTimer = setInterval(drawCircos, 6000)
     window.drawCircos = drawCircos
 
+    // https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
     d3.select(document).on('visibilitychange', function(){
       console.log('is runing visibilitychange')
       clearInterval(timerHandler.intervalUpdateTimer);
@@ -487,6 +465,26 @@ export default {
         timerHandler.intervalUpdateTimer = setInterval(drawCircos, 6000)
       }
     });
+
+    // var quantize = d3.scaleQuantize()
+    //   .domain([ 0, 0.15 ])
+    //   .range(d3.range(9).map(function(i) { return "q" + i + "-9"; }));
+    //
+    // var svg = d3.select(".info-legend");
+    //
+    // svg.append("g")
+    //   .attr("class", "legendQuant")
+    //   .attr("transform", "translate(20,20)");
+    //
+    // var legend = d3.legendColor()
+    //   .labelFormat(d3.format(".2f"))
+    //   .useClass(true)
+    //   .title("A really really really really really long title")
+    //   .titleWidth(100)
+    //   .scale(quantize);
+    //
+    // svg.select(".legendQuant")
+    //   .call(legend);
   },
   methods: {
     startHacking() {
@@ -501,7 +499,20 @@ export default {
   font-family: Helvetica, sans-serif;
   text-align: center;
 }
-.chord.follower {
+/*.cs-layout .layout-path {
+    stroke-width: 3;
+  stroke-dasharray: 10;
+  animation: dash2 2s linear;
+  animation-iteration-count: 1;
+  stroke: black;
+}
+@keyframes dash2 {
+  to {
+    stroke-dashoffset: 2000;
+    stroke: inherit;
+  }
+}*/
+.chord.region {
   stroke-width: 3;
   stroke-dasharray: 500;
   stroke-dashoffset: 500;
