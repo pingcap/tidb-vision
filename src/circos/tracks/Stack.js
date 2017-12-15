@@ -143,13 +143,16 @@ export default class Stack extends Track {
         .attr('stroke', 'blue')
         .attr('fill', 'yellow').remove()
 
-      return tiles.enter().append('path')
-        .attr('class', 'tile')
-        .attr('d', arc())
+      let x = tiles.enter().append('path')
+        .attr('class', function(d) {
+          return 'tile' + (d.type ? (' ' + d.type) : '')
+        })
+
+        x.attr('d', arc())
         .attr('opacity', conf.opacity)
         .attr('stroke-width', conf.strokeWidth)
         .attr('stroke', conf.strokeColor)
         .attr('fill', conf.colorValue)
-
+      return x
   }
 }

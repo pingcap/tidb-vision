@@ -25,10 +25,11 @@ export default class Histogram extends Track {
   }
 
   renderDatum (parentElement, conf, layout) {
+    parentElement.selectAll('.bin').remove()
     const bin = parentElement.selectAll('.bin')
-      .data((d) => d.values, d => JSON.stringify(d.values))
+      .data((d) => d.values)
 
-      bin.exit().remove()
+      // bin.exit().remove()
 
       return bin.enter().append('path')
       .attr('class', 'bin')
