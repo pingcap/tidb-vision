@@ -2,15 +2,21 @@
 
 ### Dev
 
+Prerequisite：
+
+- 依赖于新版本的 PD Server [具体 PR](https://github.com/pingcap/pd/pull/881)
+
 安装依赖：
 
 - node v7+, npm
 - npm install
 
+> Tip: 如果需要外部访问，可修改 webpack.config.js 中 devServer 中的  host 配置
+
 启动：
 
-- 使用默认的 mock server: `npm start`
-- 使用外部 pD Server: `export PD_ENDPOINT=localhost:8080;npm start`
+- 使用默认的 mock server: `export PD_ENDPOINT=localhost:9000;npm start`
+- 使用外部 PD Server: `export PD_ENDPOINT=<PD_SERVER_IP>:<PORT>;npm start`
 
 
 该组件通过独立（standalone）的 UI framework 提供对 PD 调度的可视化，通过 d3 （data-driven-document）作为底层render库，扩展改造的 circos 作为基本的 layout engine 实现 stacks，circle sector, chords等布局，通过 d3 transition 提供state间的过度效果等。
