@@ -6,6 +6,25 @@ const publicPath = "";
 const express = require("express");
 const path = require("path");
 
+
+let proxy = {}
+if(process.env.PD_ENDPOINT) {
+  console.log('PD_ENDPOINT: Using ', process.env.PD_ENDPOINT)
+  proxy = {
+    "/pd/api/v1": {
+      target: 'http://'+process.env.PD_ENDPOINT,
+      changeOrigin: true
+    }
+  }
+} else {
+  console.log('PD_ENDPOINT: Using default Mock Server')
+  proxy = {
+    "/pd/api/v1": {
+      target: `http://localhost:${process.env.MOCK_PORT || 9000}`,
+    }
+  }
+}
+
 module.exports = (options = {}) => ({
   entry: {
     vendor: "./src/vendor",
@@ -80,18 +99,7 @@ module.exports = (options = {}) => ({
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
       "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
     },
-    proxy: {
-      /*"/pd/api/v1": {
-        target: "http://172.16.10.49:2379",
-        changeOrigin: true,
-        pathRewrite: {
-          "^/api": ""
-        }
-      },*/
-      "/pd/api/v1": {
-        target: `http://localhost:${process.env.MOCK_PORT || 9000}`,
-      }
-    },
+    proxy,
     historyApiFallback: {
       index: url.parse(options.dev ? "/assets/" : publicPath).pathname
     }
