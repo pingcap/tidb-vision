@@ -93,6 +93,12 @@ module.exports = (options = {}) => ({
         "/static/",
         express.static(path.join(__dirname, "src", "assets"))
       );
+      if(process.env.NODE_ENV="production") {
+        app.use(
+          "/",
+          express.static(path.join(__dirname, "dist"))
+        );
+      }
     },
     headers: {
       "Access-Control-Allow-Origin": "*",
