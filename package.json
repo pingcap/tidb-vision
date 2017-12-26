@@ -2,7 +2,7 @@
   "name": "pd-vis",
   "description": "tidb pd visualiation",
   "scripts": {
-    "dev": "webpack-dev-server --inline --hot --env.dev",
+    "dev": "webpack-dev-server --inline --hot --env.dev --host 0.0.0.0",
     "mock": "nodemon --watch mock/server.js mock/server.js",
     "start": "npm-run-all -p mock dev",
     "build": "rimraf dist && webpack -p --progress --hide-modules",

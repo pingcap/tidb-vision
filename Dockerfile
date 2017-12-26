@@ -12,13 +12,13 @@ COPY package*.json ./
 RUN npm install
 # If you are building your code for production
 # RUN npm install --only=production
-RUN npm run build
+# RUN npm run build
 
 # Bundle app source
 COPY . .
 
-EXPOSE 8080
+EXPOSE 8010
 
-ENV NODE_ENV production
+# ENV NODE_ENV production
 ENV PD_ENDPOINT localhost:9000
 CMD [ "npm", "start" ]
