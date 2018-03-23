@@ -4,7 +4,6 @@
     <div class="info-container info-host"></div>
     <svg class="info-container info-legend"></svg>
     <div class="info-container info-transfer"></div>
-    </div>
   </div>
 </template>
 
@@ -71,7 +70,7 @@ async function genStores() {
     return {
       len: i.all_count/layerCount,
       ratio: 1 - i.available/i.capacity,
-      label: `Store ${i.id} ${i.address}, with speed ${_.random(100, 900)}kbs`,
+      label: `Store ${i.id}`, // ${i.address}, with speed ${_.random(100, 900)}kbs
       id: 'store' + i.id,
       _id: i.id,
       hot_write_flow, hot_read_flow,
@@ -276,7 +275,6 @@ export default {
         mainGradient.append('stop')
             .attr('stop-color', c2)
             .attr('offset', '1');
-
       }
 
       const layoutConf = {
@@ -286,6 +284,7 @@ export default {
         shape: 'square',
         events: {
           click: (d, i, nodes, e) => {
+            return
             const make = annoInstance.annotations([{
               type: d3.annotationCalloutCircle,
               color: "#E8336D",
@@ -297,7 +296,7 @@ export default {
               x: e.pageX, y: e.pageY,
               dy: 40, dx: 70,
               subject: { radius: 40, radiusPadding: 4 }
-            }])
+            }]).editMode(true)
 
             d3.select("svg .annotation-group")
               .call(make)
@@ -518,9 +517,6 @@ export default {
   stroke-dashoffset: 500;
   animation: dash 3s linear forwards;
   animation-iteration-count: infinite;
-}
-.chord.leader{
-
 }
 .histogram .bin, .histogram1 .bin {
   animation: tada 3s linear forwards;
