@@ -80,7 +80,7 @@ async function genStores() {
     }
   })
   // labels.sort((a,b)=>Math.random()-0.5)
-  labels.sort((a,b)=>a-b)
+  labels.sort((a,b)=>a._id-b._id)
   labels.forEach(i=>{
     storeM[i._id] = i
   })
