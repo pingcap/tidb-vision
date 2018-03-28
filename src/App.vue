@@ -34,6 +34,9 @@ async function genStores() {
     url: `${PDAPI}/trend`,
   })
 
+  // filter out down store
+  data.stores = data.stores.filter(s=>s.state_name != 'Down')
+
   // debugger;
   hotSpots = data.stores.map(i=>{
     let s = {
