@@ -1,24 +1,13 @@
-FROM node:8
-# node:carbon
+FROM abiosoft/caddy
 
-# Create app directory
-WORKDIR /usr/src/app
+ADD dist /src
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
-COPY package*.json ./
+ADD Caddyfile /etc/Caddyfile
 
-RUN npm install
-# If you are building your code for production
-# RUN npm install --only=production
-# RUN npm run build
+WORKDIR /src
 
-# Bundle app source
-COPY . .
+ENV PD_ENDPOINT=localhost:9000 REGION_BYTE_SIZE=100663296 PORT=8010 HOST=0.0.0.0
 
 EXPOSE 8010
 
-# ENV NODE_ENV production
-ENV PD_ENDPOINT localhost:9000
-CMD [ "npm", "start" ]
+ENTRYPOINT ["/bin/sh", "-c", "sed -i -e \"s/PD_ENDPOINT/$PD_ENDPOINT/g\" /etc/Caddyfile;caddy --conf /etc/Caddyfile"]

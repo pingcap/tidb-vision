@@ -1,0 +1,8 @@
+{$HOST}:{$PORT}
+
+proxy /pd PD_ENDPOINT {
+    policy round_robin
+}
+
+log stdout
+

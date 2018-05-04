@@ -1,6 +1,11 @@
-## PD vis
+## Tidb Vision
 
 `tidb-vision` is a component that provides the visualization of PD scheduling through a standalone UI framework. It uses d3 (data-driven-document) as the bottom layer render library, and uses the extended circos as the basic layout engine to implement layouts such as stacks, circle sector, and chords. The transition effect between states is provided through d3 transition.
+
+### Todo
+
+- [] doc for REGION_BYTE_SIZE setting
+- [] doc for new candy webserver docker image
 
 ### Dev
 
