@@ -1,5 +1,10 @@
 ## PD vis
 
+### Todo
+
+- [] English version readme
+- [] doc for REGION_BYTE_SIZE setting
+
 ### Dev
 
 Prerequisite：

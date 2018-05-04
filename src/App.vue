@@ -15,18 +15,40 @@ import {
 
 import {createHotpotEffect, sampleValFn, rgbToHex} from './helper'
 
+
+function QueryStringToJSON() {
+  const pairs = location.search.slice(1).split('&');
+  
+  const result = {};
+  pairs.forEach(function(pair) {
+      pair = pair.split('=');
+      result[pair[0]] = decodeURIComponent(pair[1] || '');
+  });
+
+  return JSON.parse(JSON.stringify(result));
+}
+
+const queryParams = QueryStringToJSON();
+
 /* Constant */
-let PDHOST = location.host
-if(location.search && location.search.startsWith('?url=')) {
-  PDHOST = location.search.replace('?url=', '')
+var PDHOST = location.host
+if(queryParams && queryParams.url) {
+  PDHOST = queryParams.url
 }
 const PDAPI = `http://${PDHOST}/pd/api/v1`
 
-let timerHandler = {
+// get the region physical size
+var tRegionSize
+tRegionSize = +process.env.REGION_BYTE_SIZE || 100663296 // default size, 96m in bytes
+if(queryParams && queryParams.region_byte_size) {
+  tRegionSize = +queryParams.region_byte_size
+}
+
+var timerHandler = {
     intervalUpdateTimer : null
 }
 
-let layerCount, thickness, hotSpots = [], lastDataM = {}
+var layerCount, thickness, hotSpots = [], lastDataM = {}
 const STACKPIXEL = 160;
 async function genStores() {
   // try catch, status need 200
@@ -37,7 +59,7 @@ async function genStores() {
   // filter out down store
   data.stores = data.stores.filter(s=>s.state_name != 'Down')
 
-  // debugger;
+  // gen hotspots data
   hotSpots = data.stores.map(i=>{
     let s = {
       id: 'store'+i.id,
@@ -55,9 +77,16 @@ async function genStores() {
     return s
   })
 
+  // let tCapacity, tAvailable, tRegionCount
+  // if(_.some(data.stores, 'region_count')) {
+  //   tCapacity = _.sumBy(data.stores, 'capacity')
+  //   tAvailable = _.sumBy(data.stores, 'available')
+  //   tRegionCount = _.sumBy(data.stores, 'region_count')
+  //   tRegionSize = (tCapacity - tAvailable) / tRegionCount
+  // }
 
   data.stores = data.stores.map(i=>{
-    i.all_count = Math.ceil(i.capacity / ((i.capacity - i.available) / i.region_count))
+    i.all_count = Math.ceil(i.capacity / tRegionSize)
     return i
   })
   const regionCList = _.map(data.stores, 'all_count')
@@ -554,8 +583,8 @@ export default {
 
 .slideInUp {
   animation-duration: 1s;
-animation-fill-mode: both;
-animation-iteration-count: 1;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
   animation-name: slideInUp;
 }
 
@@ -574,8 +603,8 @@ animation-iteration-count: 1;
 
 .slideOutDown {
   animation-duration: 1s;
-animation-fill-mode: both;
-animation-iteration-count: 1;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
   animation-name: slideOutDown;
 }
 

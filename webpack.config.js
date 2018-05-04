@@ -5,7 +5,7 @@ const url = require("url");
 const publicPath = "";
 const express = require("express");
 const path = require("path");
-
+const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
 
 let proxy = {}
 if(process.env.PD_ENDPOINT) {
@@ -73,12 +73,29 @@ module.exports = (options = {}) => ({
     ]
   },
   plugins: [
-    new webpack.optimize.CommonsChunkPlugin({
-      names: ["vendor", "manifest"]
+    new UglifyJSPlugin({
+      uglifyOptions: {
+        beautify: false,
+        ecma: 6,
+        sourceMap: false,
+        mangle: false,
+        compress: false,
+        comments: false
+      }
+    }),
+    // new webpack.optimize.CommonsChunkPlugin({
+    //   names: ["vendor", "manifest"]
+    // }),
+    new webpack.EnvironmentPlugin({
+      'NODE_ENV': 'dev',
+      'REGION_BYTE_SIZE': '100663296' // default size
+    }),
+    new webpack.DefinePlugin({
+      'API_URL': "'http://hardsets.dev'"
     }),
     new HtmlWebpackPlugin({
       template: "src/index.html"
-    })
+    }),
   ],
   resolve: {
     alias: {
@@ -110,5 +127,5 @@ module.exports = (options = {}) => ({
       index: url.parse(options.dev ? "/assets/" : publicPath).pathname
     }
   },
-  devtool: options.dev ? "#eval-source-map" : "#source-map"
+  // devtool: options.dev ? "#eval-source-map" : "#source-map"
 });

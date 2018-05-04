@@ -263,31 +263,31 @@ function mount(router) {
   router.get('/', jsonSend({}))
 
   let simpleIdx = 1
-  router.get('/trend', (req, res)=>{
-    let stores = genFakeData(5, simpleIdx, 4)
-    let history = genFakeHistory(stores)
-    ++simpleIdx
-    res.json({
-      stores,
-      history
-    })
-  })
-
-  // router.get('/trend', (req, res) => {
-  //   let stores = genFakeV2()
-  //   let history
-  //   if (timeFrameIdx < 2) {
-  //     history = {
-  //       entries: []
-  //     } // genFakeHistory(stores)
-  //   } else {
-  //     history = genFakeHistoryV2()
-  //   }
+  // router.get('/trend', (req, res)=>{
+  //   let stores = genFakeData(5, simpleIdx, 4)
+  //   let history = genFakeHistory(stores)
+  //   ++simpleIdx
   //   res.json({
   //     stores,
   //     history
   //   })
   // })
+
+  router.get('/trend', (req, res) => {
+    let stores = genFakeV2()
+    let history
+    if (timeFrameIdx < 2) {
+      history = {
+        entries: []
+      } // genFakeHistory(stores)
+    } else {
+      history = genFakeHistoryV2()
+    }
+    res.json({
+      stores,
+      history
+    })
+  })
 
   router.get('/hotspot/regions/write', jsonSend({}))
 }
