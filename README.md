@@ -1,41 +1,40 @@
-## PD vis
+## Tidb Vision
+
+`tidb-vision` is a component that provides the visualization of PD scheduling through a standalone UI framework. It uses d3 (data-driven-document) as the bottom layer render library, and uses the extended circos as the basic layout engine to implement layouts such as stacks, circle sector, and chords. The transition effect between states is provided through d3 transition.
 
 ### Todo
 
-- [] English version readme
 - [] doc for REGION_BYTE_SIZE setting
+- [] doc for new candy webserver docker image
 
 ### Dev
 
-Prerequisite：
+#### Prerequisite
 
-- 依赖于新版本的 PD Server [具体 PR](https://github.com/pingcap/pd/pull/881)
+- Depends on the latest version of the PD server. For details, see [the related PR](https://github.com/pingcap/pd/pull/881).
 
-安装依赖：
+#### Install the dependencies
 
 - node v7+, npm
 - npm install
 
-> Tip: 如果需要外部访问，可修改 webpack.config.js 中 devServer 中的  host 配置
+> **Note:** If you need external access, modify the host configuration of devServer in `webpack.config.js`.
 
-启动：
+#### Start the component
 
-- 使用默认的 mock server: `export PD_ENDPOINT=localhost:9000;npm start`
-- 使用外部 PD Server: `export PD_ENDPOINT=<PD_SERVER_IP>:<PORT>;npm start`
+- Use the default mock server: `export PD_ENDPOINT=localhost:9000;npm start`
+- Use the external PD server: `export PD_ENDPOINT=<PD_SERVER_IP>:<PORT>;npm start`
 
-
-该组件通过独立（standalone）的 UI framework 提供对 PD 调度的可视化，通过 d3 （data-driven-document）作为底层render库，扩展改造的 circos 作为基本的 layout engine 实现 stacks，circle sector, chords等布局，通过 d3 transition 提供state间的过度效果等。
-
-通过 dashboard 界面的入口，点击进入即可查看当前的集群 TiKV 数据分布（regions，leader），TiKV store和region的热度（i/o读写速率），PD schedule 调度的历史（region/leader transfer 信息。
+On the dashboard interface, click the entry to view the TiKV data distribution (Regions, leader), TiKV store, Region heat (I/O read and write rates) and PD scheduling history (Region/leader transfer) of the current cluster.
 
 ![](./demo.gif)
 
-其中：
+Description of the ring chart:
 
-- 圆环外围文字提供每次时间窗口内的该 store 的leader/region 变动情况，如 `+10 Regions, - 3 Leaders` 等
-- 圆环外围的histogram 直方图，圆环方向左侧启示显示的store 写操作和热点 region 的写操作 flowtypes 信息，圆环方向右侧启示显示的store 读操作和热点 region 的读操作 flowtypes 信息
-- 圆环的长度代表该圆环代表的store全部存储空间，文字信息是该store的主机 ip:port 和 id等基本信息
-- 圆环内部的方块堆栈是按照“磁盘存储”显示三类信息：未使用空间块（浅灰色），普通region块（深灰色）和作为leader的块（绿色）
-- 圆环内部的 chord 圆弧显示的store间的数据迁移（region）和leader transfer信息
+- The peripheral text provides the store's leader/Region change within each time window, such as `+10 Regions, - 3 Leaders`.
+- The peripheral histogram groups: the left (the ring direction) histogram in each group shows the flowtypes information of store Write and hot Region Write operations; the right histogram shows the flowtypes information of store Read and hot Region Read operations.
+- The length of the ring represents the entire storage space of a specific store, and the text shows the basic information, such as the store's host ip:port and id.
+- The block stacks inside the ring show three types of information in terms of "disk storage": unused space blocks (light gray), ordinary Region blocks (dark gray), and blocks as leader (green).
+- The chord arcs inside the ring show the Region and leader transfer information between stores.
 
-在使用的时候，需要注意的是，根据集群当前所在的状态，如几个 tikv 实例节点，tikv 的存储使用情况，tikv 读写“热度”等情况会有不同的状态。
+> **Note:** Depending on the current cluster status, which includes the number of TiKV instances and TiKV storage usage and so on, the component condition such as the Write and Read "heat" might be different.
