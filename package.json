@@ -18,7 +18,7 @@
     "d3-scale-chromatic": "^1.1.1",
     "d3-svg-annotation": "^2.1.0",
     "d3-svg-legend": "^2.25.1",
-    "lodash": "^4.17.4",
+    "lodash": "^4.17.13",
     "vue": "^2.5.2"
   },
   "engines": {
