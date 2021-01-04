@@ -10,7 +10,7 @@
     "ghpages": "git add -f dist && git commit -m 'publish';git subtree push --prefix dist origin gh-pages"
   },
   "dependencies": {
-    "axios": "^0.17.1",
+    "axios": "^0.21.1",
     "clipboard-js": "^0.3.6",
     "d3": "^4.12.0",
     "d3-hierarchy": "^1.1.5",
