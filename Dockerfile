@@ -1,4 +1,4 @@
-FROM abiosoft/caddy
+FROM caddy:latest
 
 ADD dist /src
 
