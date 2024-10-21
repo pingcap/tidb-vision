@@ -1,8 +1,7 @@
 {$HOST}:{$PORT}
 
-proxy /pd PD_ENDPOINT {
-    policy round_robin
+reverse_proxy /pd PD_ENDPOINT {
+        lb_policy round_robin
 }
 
 log stdout
-
